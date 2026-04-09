@@ -11,10 +11,13 @@ Works with **Claude Desktop** and **Claude Code**. Single-file, no framework dep
 | `get_player_stats` | ELO, skill level, region, lifetime K/D, HS%, win rate, streaks |
 | `get_match_history` | Last N matches — map, W/L, K/D, kills, HS%, K/R |
 | `compare_players` | Side-by-side stats for 2–6 FACEIT nicknames |
+| `get_recent_form` | Aggregated stats from last N matches: win rate, avg K/D, current streak, per-map breakdown |
+| `get_match_details` | Full scoreboard for a match by ID — teams, score, all player stats, multi-kills |
+| `get_player_map_stats` | Per-map win rate, K/D, HS%, and K/R from lifetime segments |
 | `get_leaderboard` | Registered users ranked by live ELO |
 | `get_elo_trend` | Stored ELO snapshots for a registered user |
 
-> `get_player_stats`, `get_match_history`, and `compare_players` work for **any** public FACEIT player with just an API key. `get_leaderboard` and `get_elo_trend` require a SQLite DB with registered users (see [DB setup](#leaderboard--elo-trend)).
+> All tools except `get_leaderboard` and `get_elo_trend` work for **any** public FACEIT player with just an API key. The leaderboard and ELO trend tools require a SQLite DB with registered users (see [DB setup](#leaderboard--elo-trend)).
 
 ## Requirements
 
@@ -76,6 +79,9 @@ Once connected, just ask Claude naturally:
 - *"What are s1mple's lifetime stats?"*
 - *"Show me the last 10 matches for NiKo"*
 - *"Compare zywoo, device, and sh1ro side by side"*
+- *"How has NiKo been performing over his last 20 matches?"*
+- *"Show the full scoreboard for match 1-abc123…"*
+- *"Which maps does sh1ro perform best on?"*
 - *"Show the leaderboard for our group"*
 - *"How has my ELO changed over the last month?"*
 

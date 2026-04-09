@@ -29,6 +29,9 @@ Available tools
   get_player_stats    — ELO, level, region, lifetime K/D, HS%, win rate, streaks
   get_match_history   — last N matches with map, W/L, K/D, kills, HS%, K/R
   compare_players     — side-by-side stats for 2–6 FACEIT nicknames
+  get_recent_form     — aggregated stats from last N matches: win rate, K/D, streak, map breakdown
+  get_match_details   — full scoreboard for a match by ID: teams, score, all player stats, multi-kills
+  get_player_map_stats — per-map win rate, K/D, HS%, K/R from lifetime segments
   get_leaderboard     — registered users ranked by live ELO (requires DB with users)
   get_elo_trend       — stored ELO snapshots for a registered user (requires DB with history)
 
@@ -118,6 +121,7 @@ _TTL_PLAYER = 60.0
 _TTL_NICKNAME = 120.0
 _TTL_LIFETIME = 120.0
 _TTL_MATCH_STATS = 60.0
+_TTL_MATCH_FULL = 3600.0  # finished matches never change
 
 
 class FaceitAPIError(Exception):
@@ -239,6 +243,12 @@ class FaceitAPI:
             f"/players/{player_id}/games/{GAME_ID}/stats",
             params={"limit": limit, "offset": offset},
         )
+
+    async def get_match(self, match_id: str) -> dict[str, Any]:
+        return await self._cached_get(f"match:{match_id}", _TTL_MATCH_FULL, f"/matches/{match_id}")
+
+    async def get_match_stats(self, match_id: str) -> dict[str, Any]:
+        return await self._cached_get(f"match_full_stats:{match_id}", _TTL_MATCH_FULL, f"/matches/{match_id}/stats")
 
 
 # ---------------------------------------------------------------------------
@@ -500,6 +510,37 @@ def parse_match_stats_row(stats: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def parse_map_segments(st: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract per-map stats from a lifetime stats API response."""
+    results = []
+    for seg in (st.get("segments") or []):
+        if not isinstance(seg, dict):
+            continue
+        if str(seg.get("type") or "").lower() != "map":
+            continue
+        map_name = seg.get("label") or seg.get("name") or "Unknown"
+        raw = seg.get("stats") or {}
+        if not isinstance(raw, dict):
+            continue
+
+        def _g(*keys: str, _raw: dict = raw) -> float | None:
+            return _to_float(_pick(_raw, *keys))
+
+        matches = _g("Matches", "Games")
+        results.append({
+            "map":       map_name,
+            "matches":   _to_int(matches),
+            "wins":      _to_int(_g("Wins", "Win")),
+            "win_rate":  _fmt(_g("Win Rate %", "Win Rate"), ".1f", "%"),
+            "kd":        _fmt(_g("Average K/D Ratio", "K/D Ratio", "Average K/D"), ".2f"),
+            "hs_pct":    _fmt(_g("Average Headshots %", "Headshots %"), ".1f", "%"),
+            "kr":        _fmt(_g("Average K/R Ratio", "K/R Ratio", "K/R"), ".2f"),
+            "avg_kills": _fmt(_g("Average Kills", "Kills / Match", "Average Kills per Match"), ".1f"),
+        })
+
+    return sorted(results, key=lambda x: -(x["matches"] if isinstance(x["matches"], int) else 0))
+
+
 # ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
@@ -544,8 +585,16 @@ async def init_db(db_path: str = DB_PATH) -> None:
 mcp = FastMCP(
     name="faceit-cs2",
     instructions=(
-        "Provides live CS2 FACEIT data: player stats, match history, player comparisons, "
-        "leaderboard, and ELO trend for bot-registered users. "
+        "Provides live CS2 FACEIT data. Tools available: "
+        "get_player_stats (ELO, level, lifetime stats), "
+        "get_match_history (recent matches), "
+        "compare_players (side-by-side comparison of 2-6 players), "
+        "get_recent_form (aggregated stats from last N matches including streak and map breakdown), "
+        "get_match_details (full scoreboard for a match ID from get_match_history), "
+        "get_player_map_stats (per-map win rate and stats), "
+        "get_leaderboard (registered users by ELO), "
+        "get_elo_trend (ELO history for registered users). "
+        "Use get_recent_form instead of get_match_history when the user asks about form, performance, or trends. "
         "Always call get_player_stats before answering questions about a specific player."
     ),
 )
@@ -789,6 +838,199 @@ async def get_elo_trend(nickname: str) -> str:
         "elo_change_total": elos[-1] - elos[0],
         "snapshots":        snaps,
     }, indent=2)
+
+
+@mcp.tool()
+async def get_recent_form(nickname: str, limit: int = 20) -> str:
+    """Return aggregated performance stats from a player's most recent matches.
+
+    Includes win rate, average K/D, HS%, K/R, current streak, and per-map breakdown.
+
+    Args:
+        nickname: FACEIT nickname.
+        limit: Number of recent matches to analyse (5–30, default 20).
+    """
+    limit = max(5, min(30, limit))
+    try:
+        pl = await _api().get_player_by_nickname(nickname.strip())
+        pid = pl.get("player_id")
+        if not pid:
+            raise FaceitAPIError("No player_id in response")
+        raw = await _api().get_player_match_stats(pid, limit=limit)
+    except FaceitNotFoundError:
+        return json.dumps({"error": f"Player '{nickname}' not found on FACEIT."})
+    except FaceitAPIError as exc:
+        return json.dumps({"error": str(exc)})
+
+    rows = [
+        parse_match_stats_row(it["stats"])
+        for it in (raw or {}).get("items") or []
+        if isinstance(it, dict) and isinstance(it.get("stats"), dict)
+    ]
+    if not rows:
+        return json.dumps({"nickname": nickname, "matches_analyzed": 0, "note": "No matches found."})
+
+    wins   = sum(1 for r in rows if r["won"] is True)
+    losses = sum(1 for r in rows if r["won"] is False)
+    kds    = [r["kd"]     for r in rows if r["kd"]     is not None]
+    kls    = [r["kills"]  for r in rows if r["kills"]  is not None]
+    hspcts = [r["hs_pct"] for r in rows if r["hs_pct"] is not None]
+    krs    = [r["kr"]     for r in rows if r["kr"]     is not None]
+
+    # Current streak (rows are newest-first)
+    streak_val, streak_type = 0, None
+    for r in rows:
+        if r["won"] is True:
+            if streak_type in (None, "W"):
+                streak_type, streak_val = "W", streak_val + 1
+            else:
+                break
+        elif r["won"] is False:
+            if streak_type in (None, "L"):
+                streak_type, streak_val = "L", streak_val + 1
+            else:
+                break
+        else:
+            break
+
+    # Per-map breakdown
+    map_stats: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        m = r["map"]
+        if not m or m == "—":
+            continue
+        ms = map_stats.setdefault(m, {"wins": 0, "losses": 0, "kds": []})
+        if r["won"] is True:
+            ms["wins"] += 1
+        elif r["won"] is False:
+            ms["losses"] += 1
+        if r["kd"] is not None:
+            ms["kds"].append(r["kd"])
+
+    map_breakdown = []
+    for map_name, ms in sorted(map_stats.items()):
+        total = ms["wins"] + ms["losses"]
+        avg_kd = sum(ms["kds"]) / len(ms["kds"]) if ms["kds"] else None
+        map_breakdown.append({
+            "map":      map_name,
+            "played":   total,
+            "wins":     ms["wins"],
+            "losses":   ms["losses"],
+            "win_rate": _fmt(ms["wins"] / total * 100 if total else None, ".0f", "%"),
+            "avg_kd":   _fmt(avg_kd, ".2f"),
+        })
+    map_breakdown.sort(key=lambda x: -x["played"])
+
+    return json.dumps({
+        "nickname":        nickname,
+        "matches_analyzed": len(rows),
+        "wins":            wins,
+        "losses":          losses,
+        "win_rate":        _fmt(wins / len(rows) * 100, ".1f", "%"),
+        "avg_kd":          _fmt(sum(kds) / len(kds) if kds else None, ".2f"),
+        "avg_kills":       _fmt(sum(kls) / len(kls) if kls else None, ".1f"),
+        "avg_hs_pct":      _fmt(sum(hspcts) / len(hspcts) if hspcts else None, ".1f", "%"),
+        "avg_kr":          _fmt(sum(krs) / len(krs) if krs else None, ".2f"),
+        "current_streak":  f"{streak_val}{streak_type}" if streak_type and streak_val > 1 else "—",
+        "map_breakdown":   map_breakdown,
+    }, indent=2)
+
+
+@mcp.tool()
+async def get_match_details(match_id: str) -> str:
+    """Return full scoreboard for a specific match: teams, score, and per-player stats.
+
+    Args:
+        match_id: FACEIT match ID (visible in get_match_history output).
+    """
+    try:
+        match_data, stats_data = await asyncio.gather(
+            _api().get_match(match_id),
+            _api().get_match_stats(match_id),
+        )
+    except FaceitNotFoundError:
+        return json.dumps({"error": f"Match '{match_id}' not found."})
+    except FaceitAPIError as exc:
+        return json.dumps({"error": str(exc)})
+
+    # Map name from voting or fallback
+    voting = match_data.get("voting") or {}
+    map_pick = (voting.get("map") or {}).get("pick") or []
+    map_name = map_pick[0] if map_pick else (match_data.get("map") or {}).get("name") or "—"
+
+    results = match_data.get("results") or {}
+    score   = results.get("score") or {}
+    winner  = results.get("winner")
+
+    rounds = (stats_data.get("rounds") or []) if isinstance(stats_data, dict) else []
+    round_data = rounds[0] if rounds else {}
+
+    teams_out = []
+    for team in round_data.get("teams") or []:
+        ts         = team.get("team_stats") or {}
+        faction_id = team.get("team_id") or ""
+
+        players_out = []
+        for p in team.get("players") or []:
+            ps = p.get("player_stats") or {}
+            players_out.append({
+                "nickname":    p.get("nickname") or "—",
+                "kills":       ps.get("Kills"),
+                "deaths":      ps.get("Deaths"),
+                "assists":     ps.get("Assists"),
+                "kd":          ps.get("K/D Ratio"),
+                "hs_pct":      ps.get("Headshots %") or ps.get("Average Headshots %"),
+                "kr":          ps.get("K/R Ratio") or ps.get("Average K/R Ratio"),
+                "mvps":        ps.get("MVPs"),
+                "triple_kills": ps.get("Triple Kills"),
+                "quadro_kills": ps.get("Quadro Kills"),
+                "penta_kills":  ps.get("Penta Kills"),
+            })
+
+        final_score = ts.get("Final Score") or score.get(faction_id)
+        teams_out.append({
+            "name":               ts.get("Team") or faction_id,
+            "score":              final_score,
+            "won":                ts.get("Win") == "1" or faction_id == winner,
+            "first_half_score":   ts.get("First Half Score"),
+            "second_half_score":  ts.get("Second Half Score"),
+            "overtime_score":     ts.get("Overtime Score"),
+            "players":            players_out,
+        })
+
+    return json.dumps({
+        "match_id": match_id,
+        "map":      map_name,
+        "status":   match_data.get("status"),
+        "teams":    teams_out,
+    }, indent=2)
+
+
+@mcp.tool()
+async def get_player_map_stats(nickname: str) -> str:
+    """Return per-map performance breakdown for a FACEIT player.
+
+    Shows win rate, K/D, HS%, and K/R for every map with recorded lifetime stats.
+
+    Args:
+        nickname: FACEIT nickname.
+    """
+    try:
+        pl = await _api().get_player_by_nickname(nickname.strip())
+        pid = pl.get("player_id")
+        if not pid:
+            raise FaceitAPIError("No player_id in response")
+        st = await _api().get_player_stats_lifetime(pid)
+    except FaceitNotFoundError:
+        return json.dumps({"error": f"Player '{nickname}' not found on FACEIT."})
+    except FaceitAPIError as exc:
+        return json.dumps({"error": str(exc)})
+
+    maps = parse_map_segments(st if isinstance(st, dict) else {})
+    if not maps:
+        return json.dumps({"nickname": nickname, "maps": [], "note": "No per-map stats available."})
+
+    return json.dumps({"nickname": nickname, "maps": maps}, indent=2)
 
 
 # ---------------------------------------------------------------------------
