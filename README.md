@@ -4,6 +4,34 @@ A standalone [MCP](https://modelcontextprotocol.io/) server that gives Claude li
 
 Works with **Claude Desktop** and **Claude Code**. Single-file, no framework dependencies beyond `mcp`, `aiohttp`, `aiosqlite`, and `python-dotenv`.
 
+## Demo
+
+> **You:** Compare zywoo, NiKo, and sh1ro side by side
+
+> **Claude:** Here's a side-by-side comparison of the three players:
+>
+> | | ZywOo | NiKo | sh1ro |
+> |---|---|---|---|
+> | **ELO** | 4521 | 4218 | 4384 |
+> | **Level** | 10 | 10 | 10 |
+> | **K/D** | 1.43 | 1.38 | 1.41 |
+> | **HS%** | 52.1% | 48.7% | 44.2% |
+> | **Win Rate** | 61.3% | 58.9% | 60.1% |
+> | **Avg Kills** | 24.8 | 23.6 | 23.1 |
+> | **K/R** | 0.91 | 0.87 | 0.89 |
+
+---
+
+> **You:** How has NiKo been playing in his last 20 matches?
+
+> **Claude:** NiKo's recent form over 20 matches:
+> - **Record:** 13W – 7L (65.0% win rate)
+> - **Avg K/D:** 1.42 | **Avg kills:** 24.3 | **Avg HS%:** 49.1%
+> - **Current streak:** 3W
+>
+> Best maps: de_inferno (8W-2L, 70% wr), de_ancient (4W-1L, 80% wr)
+> Worst map: de_vertigo (1W-3L, 25% wr)
+
 ## Tools
 
 | Tool | Description |
